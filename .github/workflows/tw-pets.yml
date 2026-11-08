@@ -1,0 +1,40 @@
+# Monthly refresh of the Taiwan pet-business directory (農業部 open data) used by 店家名冊.
+# The script exits non-zero on any download error or suspiciously small result, so bad data is never committed.
+name: Refresh Taiwan pet directory
+
+on:
+  schedule:
+    - cron: '17 3 2 * *' # 03:17 UTC on the 2nd of every month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tw-pets
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build directory
+        run: python3 scripts/build-tw-pets.py
+      - name: Commit if changed
+        run: |
+          git add petpal/data/tw-pets.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Refresh Taiwan pet directory (農業部 open data)"
+          git push
